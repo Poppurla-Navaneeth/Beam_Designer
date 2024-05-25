@@ -1,0 +1,250 @@
+import math
+import numpy as np
+from scipy.interpolate import interp1d
+
+
+def length():
+    while True:
+        beam_length = input("Enter length of beam(in mm) : ")
+        if beam_length.isdigit():
+            beam_length = float(beam_length)
+            if beam_length > 0:
+                break
+            else:
+                print("Length should be greater than 0")
+        else:
+            print("Please a enter a number")
+    return beam_length
+
+
+def effective_length():
+    while True:
+        beam_length = input("Enter effective length of beam(in mm) : ")
+        if beam_length.isdigit():
+            beam_length = float(beam_length)
+            if beam_length > 0:
+                break
+            else:
+                print("Length should be greater than 0")
+        else:
+            print("Please a enter a number")
+    return beam_length
+
+
+def get_load():
+    while True:
+        beam_load = input("Enter load acting on beam(in N/mm) : ")
+        if beam_load.isdigit():
+            beam_load = float(beam_load)
+            if beam_load > 0:
+                break
+            else:
+                print("Load should be greater than 0")
+        else:
+            print("Please a enter a number")
+    return beam_load
+
+
+def conc_str():  # fck
+    while True:
+        beam_conc_str = input("Enter characteristic strength of concrete(in N/mm\u00B2) : ")
+        if beam_conc_str.isdigit():
+            beam_conc_str = float(beam_conc_str)
+            if beam_conc_str > 0:
+                break
+            else:
+                print("Strength of concrete should be greater than 0")
+        else:
+            print("Please a enter a number")
+    return beam_conc_str
+
+
+def steel_str():    # fy
+    while True:
+        beam_steel_str = input("Enter strength of steel(in N/mm\u00B2) : ")
+        if beam_steel_str.isdigit():
+            beam_steel_str = float(beam_steel_str)
+            if beam_steel_str > 0:
+                break
+            else:
+                print("Strength of steel should be greater than 0")
+        else:
+            print("Please a enter a number")
+    return beam_steel_str
+
+
+def bar_dia():
+    while True:
+        rebar_dia = input("Enter dai of rebar(in mm)  : ")
+        if rebar_dia.isdigit():
+            rebar_dia = float(rebar_dia)
+            if rebar_dia > 0:
+                break
+            else:
+                print("Reinforcement bar dia should be greater than 0")
+        else:
+            print("Please a enter a number")
+    return rebar_dia
+
+
+def depth():
+    while True:
+        beam_depth = input("Enter depth of beam : ")
+        if beam_depth.isdigit():
+            beam_depth = float(beam_depth)
+            if beam_depth > 0:
+                break
+            else:
+                print("Depth should be greater than 0")
+        else:
+            print("Please a enter a number")
+    return beam_depth
+
+
+def breadth():
+    while True:
+        beam_breadth = input("Enter breadth of beam : ")
+        if beam_breadth.isdigit():
+            beam_breadth = float(beam_breadth)
+            if beam_breadth > 0:
+                break
+            else:
+                print("Breadth should be greater than 0")
+        else:
+            print("Please a enter a number")
+    return beam_breadth
+
+
+def cover():  # d1
+    while True:
+        beam_cover = input("Enter cover of beam : ")
+        if beam_cover.isdigit():
+            beam_cover = float(beam_cover)
+            if beam_cover > 0:
+                break
+            else:
+                print("Cover should be greater than 0")
+        else:
+            print("Please a enter a number")
+    return beam_cover
+
+
+def stress_in_compression_steel(fy, d1, d):  # fsc
+
+    if fy == 415:
+        x = np.array([0.05, 0.1, 0.15, 0.2])
+        fsc = np.array([355, 353, 342, 329])
+        interp_func = interp1d(x, fsc, kind='linear')
+        x_new = d1 / d
+        fsc_new = interp_func(x_new)
+        return fsc_new
+
+
+    elif fy == 500:
+        x = np.array([0.05, 0.1, 0.15, 0.2])
+        y = np.array([424, 412, 395, 370])
+        interp_func = interp1d(x, y, kind='linear')
+        x_new = d1 / d
+        fsc_new = interp_func(x_new)
+        return fsc_new
+
+
+def solve_for_Ast(moment, fy, fck, b, d):
+    # Coefficients of the quadratic equation
+    a = 0.87 * (fy ** 2) / (fck * b)
+    b = -0.87 * fy * d
+    c = moment
+
+    # Calculate the discriminant
+    discriminant = b ** 2 - 4 * a * c
+
+    # Check if the equation has real roots
+    if discriminant >= 0:
+        # Calculate the roots
+        root1 = (-b + math.sqrt(discriminant)) / (2 * a)
+        root2 = (-b - math.sqrt(discriminant)) / (2 * a)
+
+        # Choose the positive root as the area can't be negative
+        Ast = min(root1, root2)
+        return Ast
+    else:
+        return solve_for_Ast(moment, fy, fck, b, d)  # recursive function
+
+
+def limited_moment(fy, fck, b, d):  # mu_limit
+    if fy == 250:
+        mu_lim = 0.148 * fck * b * d ** 2
+    elif fy == 415:
+        mu_lim = 0.138 * fck * b * d ** 2
+    else:
+        mu_lim = 0.133 * fck * b * d ** 2
+    return mu_lim
+
+
+def singly_reinforced_beam(len_1, eff_len, load, fck, fy, dia):
+    d = (len_1 / 12)
+    d = math.ceil(d / 50) * 50
+    b = 0.75 * (d + 50)
+    moment = (1.5 * load * (eff_len ** 2)) / 8
+    lim_depth = math.sqrt(moment / (0.138 * fck * b))
+
+    if d > lim_depth:
+        Ast = solve_for_Ast(moment, fy, fck, b, d)
+        ast = (3.142 / 4) * (dia ** 2)
+        no_of_bars = round(Ast / ast)
+        return f"Total depth of beam is {d + 50}\nTotal breadth of beam is {b}\nNo of bars required {no_of_bars}"
+    else:
+        d = lim_depth
+        Ast = solve_for_Ast(moment, fy, fck, b, d)
+        ast = (3.142 / 4) * (dia ** 2)
+        no_of_bars = round(Ast / ast)
+        return f"Total depth of beam is {d + 50}\nTotal breadth of beam is {b}\nNo of bars required {no_of_bars}"
+
+
+def design_beam():
+    while True:
+        beam_type = input("Enter type of beam (singly/doubly):")
+        len_1 = length()
+        eff_len = effective_length()
+        load = get_load()
+        fck = conc_str()
+        fy = steel_str()
+        dia = bar_dia()
+
+        if beam_type == "singly":
+            result = singly_reinforced_beam(len_1, eff_len, load, fck, fy, dia)
+            print(f"Results of Design are as follows...\U0001F447 \n{result}")
+
+        elif beam_type == "doubly":
+            b = breadth()
+            d = depth()
+            d1 = cover()
+            mu_lim = limited_moment(fy, fck, b, d)
+            fsc_new = stress_in_compression_steel(fy, d1, d)
+            moment = (1.5 * load * (eff_len ** 2)) / 8
+            if moment > mu_lim:
+                mu_2 = moment - mu_lim
+                Asc = mu_2 / (fsc_new * (d - d1))
+                Ast = ((0.36 * fck * b * 0.48 * d) / (0.87 * fy)) + ((fsc_new * Asc) / (0.87 * fy))
+                asc = (3.142 / 4) * (dia ** 2)
+                no_of_compression_bars = math.ceil(Asc / asc)
+                no_of_tension_bars = math.ceil(Ast / asc)
+                print(f"Results of design as follows...\U0001F447singly\nNo.of.compression bars: {no_of_compression_bars}\nNo.of tension bars: {no_of_tension_bars}")
+            else:
+                print("The given beam has to be designed as a Singly Reinforced beam")
+                continue_1 = input("Do you want to continue designing as single beam? (yes/no): ")
+                if continue_1 == "yes":
+                    result = singly_reinforced_beam(len_1, eff_len, load, fck, fy, dia)
+                    print(f"Results are as follow...\U0001F447\n{result}")
+                else:
+                    pass
+        else:
+            raise ValueError("Wrong Input")
+
+        option = input("Do you want to continue designing beams? (yes \u2714 /no \u2716): ")
+        if option == "no":
+            break
+
+
+result = design_beam()
+print("Thank you for using \U0001F604")
